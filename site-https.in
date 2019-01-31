@@ -1,0 +1,85 @@
+upstream app1 {
+  server $APP1;
+}
+
+upstream app2 {
+  server $APP2;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name $SITE_ADDR;
+
+    #ecc certs
+    ssl_certificate /etc/letsencrypt/${SITE_ADDR}_ecc/fullchain.cer;
+    ssl_certificate_key /etc/letsencrypt/${SITE_ADDR}_ecc/$SITE_ADDR.key;
+
+    #rsa certs
+    ssl_certificate /etc/letsencrypt/$SITE_ADDR/fullchain.cer;
+    ssl_certificate_key /etc/letsencrypt/$SITE_ADDR/$SITE_ADDR.key;
+
+    #ocsp stapling, requires nginx >= 1.3.7
+    ssl_trusted_certificate /etc/letsencrypt/${SITE_ADDR}_ecc/fullchain.cer;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4;
+
+    #ciphers
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256';
+    ssl_prefer_server_ciphers on;
+    ssl_dhparam /var/lib/nginx/params/dhparam4096.pem;
+    ssl_ecdh_curve secp384r1;
+
+    #session
+    ssl_session_timeout 4h;
+    ssl_session_cache shared:SSL:40m;
+    ssl_session_tickets on;
+
+    add_header Strict-Transport-Security 'max-age=63072000; includeSubdomains; preload';
+    server_tokens off;
+
+    error_page 404 /custom_404.html;
+    location = /custom_404.html {
+        root /var/lib/nginx/html;
+        internal;
+    }
+
+    error_page 500 502 503 504 /custom_50x.html;
+    location = /custom_50x.html {
+        root /var/lib/nginx/html;
+        internal;
+    }
+
+    location ~ ^/\.well-known/acme-challenge/([-_a-zA-Z0-9]+)\$ {
+      default_type text/plain;
+      return 200 \"\$1.$ACME_ACCOUNT\";
+    }
+
+    location / {
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Port \$server_port;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        http2_push_preload on;
+
+        if ( -f /var/lib/nginx/state/app1 ){
+          proxy_pass http://app1;
+        }
+        if ( -f /var/lib/nginx/state/app2 ){
+          proxy_pass http://app2;
+        }
+
+        proxy_http_version 1.1;
+        # This allows the ability for the execute shell window to remain open for up to 15 minutes. Without this parameter, the default is 1 minute and will automatically close.
+        proxy_read_timeout 900s;
+    }
+}
+
+server {
+    listen 80;
+    server_name $SITE_ADDR;
+    return 301 https://\$server_name\$request_uri;
+}
