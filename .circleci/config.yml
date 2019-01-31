@@ -1,0 +1,18 @@
+# Javascript Node CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-javascript/ for more details
+#
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:10.12.0
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run: docker info
+      - run: docker build -t leverj/nginx-alpine .
+      - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
+      - run: docker push leverj/nginx-alpine
+      - run: docker logout
