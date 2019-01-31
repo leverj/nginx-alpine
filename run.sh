@@ -2,7 +2,9 @@
 [ -z "$SITE_ADDR" ] && echo SITE_ADDR not defined && exit 1
 [ -z "$CERTS" -a ! -d ~/.acme.sh/$SITE_ADDR ] && echo acme.sh not found and CERTS directory not defined && exit 1
 CERTS=${CERTS:-~/.acme.sh}
-APP1=${APP1:-10.242.0.11:9000}
+LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | head -1 | cut -f2 -d' ')
+
+APP1=${APP1:-$LOCAL_IP:9000}
 APP2=${APP2:-10.242.0.12:9000}
 echo Using certs in $CERTS
 eval echo "\"$(<site-https.in)\"" > conf.d/site-https.conf
@@ -18,4 +20,4 @@ docker run -d --restart=unless-stopped \
           -v $PWD/params:/var/lib/nginx/params:ro \
           -v $PWD/conf.d:/var/lib/nginx/conf.d:ro \
           -v $PWD/state:/var/lib/nginx/state:ro \
-          -p 1500:80 -p 1543:443 nginx-alpine
+          -p 1500:80 -p 1543:443 leverj/nginx-alpine

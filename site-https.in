@@ -1,8 +1,8 @@
-upstream app1 {
+upstream app_1 {
   server $APP1;
 }
 
-upstream app2 {
+upstream app_2 {
   server $APP2;
 }
 
@@ -33,7 +33,7 @@ server {
 
     #session
     ssl_session_timeout 4h;
-    ssl_session_cache shared:SSL:40m;
+    ssl_session_cache shared:SSL:10m;
     ssl_session_tickets on;
 
     add_header Strict-Transport-Security 'max-age=63072000; includeSubdomains; preload';
@@ -65,11 +65,11 @@ server {
         proxy_set_header Connection "upgrade";
         http2_push_preload on;
 
-        if ( -f /var/lib/nginx/state/app1 ){
-          proxy_pass http://app1;
+        if ( -f /var/lib/nginx/state/app_1 ){
+          proxy_pass http://app_1;
         }
-        if ( -f /var/lib/nginx/state/app2 ){
-          proxy_pass http://app2;
+        if ( -f /var/lib/nginx/state/app_2 ){
+          proxy_pass http://app_2;
         }
 
         proxy_http_version 1.1;
