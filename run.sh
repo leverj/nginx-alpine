@@ -5,7 +5,7 @@ CERTS=${CERTS:-~/.acme.sh}
 LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | head -1 | cut -f2 -d' ')
 
 APP1=${APP1:-$LOCAL_IP:9000}
-APP2=${APP2:-10.242.0.12:9000}
+APP2=${APP2:-$LOCAL_IP:9001}
 echo Using certs in $CERTS
 eval echo "\"$(<site-https.in)\"" > conf.d/site-https.conf
 
