@@ -36,7 +36,9 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_session_tickets on;
 
-    add_header Strict-Transport-Security 'max-age=63072000; includeSubdomains; preload';
+    $SECURITY_HEADERS
+    #add_header Strict-Transport-Security 'max-age=63072000; includeSubdomains; preload';
+
     server_tokens off;
 
     error_page 404 /custom_404.html;

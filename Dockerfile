@@ -14,8 +14,7 @@ RUN apk update && \
     mkdir -p /var/lib/nginx/tmp/scgi && \
     chown nginx:nginx /var/lib/nginx/tmp/scgi &&\
     ln -s /dev/stdout /var/log/nginx/access.log && \
-    ln -s /dev/stderr /var/log/nginx/error.log && \
-    ln -sf /var/lib/nginx/conf.d/site-https.conf /etc/nginx/conf.d/site-https.conf
+    ln -s /dev/stderr /var/log/nginx/error.log
 #USER nginx
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY busybox  /bin/busybox
