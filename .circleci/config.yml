@@ -12,7 +12,7 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run: docker info
-      - run: docker build -t leverj/nginx-alpine:1.16.1 .
+      - run: docker build -t leverj/nginx-alpine:1.16.1-r4 .
       - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
       - run: docker push leverj/nginx-alpine:1.16.1
       - run: docker logout
