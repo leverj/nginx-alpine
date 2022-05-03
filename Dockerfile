@@ -2,7 +2,7 @@ FROM alpine:edge
 
 RUN apk update && \
     apk add ca-certificates nginx openssl nginx-mod-http-headers-more && \
-    mkdir /run/nginx && \
+#    mkdir /run/nginx && \
     mkdir -p /var/lib/nginx/tmp/client_body && \
     chown nginx:nginx /var/lib/nginx/tmp/client_body &&\
     mkdir -p /var/lib/nginx/tmp/proxy && \
