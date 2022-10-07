@@ -13,7 +13,7 @@ jobs:
           docker_layer_caching: true
           version: 19.03.13
       - run: docker info
-`     - run: docker build -t leverj/nginx-alpine:3.16.0_alpha20220715 .
+      - run: docker build -t leverj/nginx-alpine:3.16.0_alpha20220715 .
       - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
       - run: docker push leverj/nginx-alpine:3.16.0_alpha20220715
       - run: docker logout
