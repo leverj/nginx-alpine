@@ -1,7 +1,7 @@
 FROM alpine:edge
 
 RUN apk update && \
-    apk add ca-certificates nginx openssl nginx-mod-http-headers-more && \
+    apk add ca-certificates nginx openssl nginx-mod-http-headers-more nginx-mod-http-image-filter && \
 #    mkdir /run/nginx && \
     mkdir -p /var/lib/nginx/tmp/client_body && \
     chown nginx:nginx /var/lib/nginx/tmp/client_body &&\
