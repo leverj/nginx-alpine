@@ -45,7 +45,9 @@ workflows:
   # Build on every push to master.
   build-on-commit:
     jobs:
+      # DOCKER context provides DOCKER_USER / DOCKER_PASS for the push step.
       - build-and-push:
+          context: [DOCKER]
           filters:
             branches:
               only:
@@ -62,4 +64,5 @@ workflows:
               only:
                 - master
     jobs:
-      - build-and-push
+      - build-and-push:
+          context: [DOCKER]
