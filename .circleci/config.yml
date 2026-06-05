@@ -1,19 +1,65 @@
-# Javascript Node CircleCI 2.0 configuration file
+# CircleCI configuration for leverj/nginx-alpine
 #
-# Check https://circleci.com/docs/2.0/language-javascript/ for more details
+# Builds and publishes the image on every push to master AND on a weekly
+# schedule. The scheduled rebuild is the important part: the Dockerfile uses
+# unpinned `apk add`, so a periodic rebuild keeps all OS packages current and
+# prevents the image from accumulating CVEs (which is what tanked the Docker
+# Scout grade to F when the image sat un-rebuilt since 2022).
 #
-version: 2
+# Required project env vars (Project Settings > Environment Variables):
+#   DOCKER_USER  - Docker Hub username
+#   DOCKER_PASS  - Docker Hub access token (use a token, not the account password)
+#
+# Tagging: every build publishes `latest` plus a dated tag (YYYYMMDD) so there
+# is always a fresh, pullable, immutable snapshot.
+version: 2.1
+
 jobs:
-  build:
+  build-and-push:
     docker:
-      - image: cimg/node:16.3.0
+      - image: cimg/base:current
     steps:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-          version: 19.03.13
-      - run: docker info
-      - run: docker build -t leverj/nginx-alpine:3.17_alpha20220715 .
-      - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
-      - run: docker push leverj/nginx-alpine:3.17_alpha20220715
-      - run: docker logout
+      - run:
+          name: Compute image tag
+          # Persist the date tag so later steps in this job can reuse it.
+          command: echo "export DATE_TAG=$(date +%Y%m%d)" >> "$BASH_ENV"
+      - run:
+          name: Build image
+          command: |
+            docker build \
+              -t leverj/nginx-alpine:latest \
+              -t "leverj/nginx-alpine:${DATE_TAG}" \
+              .
+      - run:
+          name: Push to Docker Hub
+          command: |
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker push leverj/nginx-alpine:latest
+            docker push "leverj/nginx-alpine:${DATE_TAG}"
+            docker logout
+
+workflows:
+  # Build on every push to master.
+  build-on-commit:
+    jobs:
+      - build-and-push:
+          filters:
+            branches:
+              only:
+                - master
+
+  # Rebuild weekly so OS packages stay patched even with no code changes.
+  # Mondays at 06:00 UTC.
+  weekly-rebuild:
+    triggers:
+      - schedule:
+          cron: "0 6 * * 1"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - build-and-push
