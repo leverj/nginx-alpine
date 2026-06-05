@@ -27,18 +27,21 @@ jobs:
           # Persist the date tag so later steps in this job can reuse it.
           command: echo "export DATE_TAG=$(date +%Y%m%d)" >> "$BASH_ENV"
       - run:
-          name: Build image
-          command: |
-            docker build \
-              -t leverj/nginx-alpine:latest \
-              -t "leverj/nginx-alpine:${DATE_TAG}" \
-              .
-      - run:
-          name: Push to Docker Hub
+          name: Build & push with SBOM + SLSA provenance attestations
+          # buildx (docker-container driver) attaches build-time SBOM and
+          # provenance attestations to the pushed image — required by Docker
+          # Scout's "supply chain attestations" health-score policy. Attestations
+          # can only be exported on push, so build and push are one step.
           command: |
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker push leverj/nginx-alpine:latest
-            docker push "leverj/nginx-alpine:${DATE_TAG}"
+            docker buildx create --use --name attest-builder >/dev/null 2>&1 || docker buildx use attest-builder
+            docker buildx build \
+              --provenance=mode=max \
+              --sbom=true \
+              -t leverj/nginx-alpine:latest \
+              -t "leverj/nginx-alpine:${DATE_TAG}" \
+              --push \
+              .
             docker logout
 
 workflows:
