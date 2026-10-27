@@ -32,6 +32,36 @@ test, true, udhcpc, uname, unit, unix2dos, unzip, wc,
 which, whoami, xargs, yes, zcat
 ```
 
+## Versions
+
+The Dockerfile pins the Alpine release and the exact nginx package revision
+(`ARG ALPINE_VERSION`, `ARG NGINX_VERSION`). Currently nginx 1.30.6-r0 on
+Alpine 3.24, the first stable nginx with all of the 2026 security fixes
+(<https://nginx.org/en/security_advisories.html>).
+
+Alpine drops superseded package revisions, so when a newer nginx lands on the
+branch the pinned build stops resolving and the weekly CircleCI check fails.
+That is the signal to bump `NGINX_VERSION` (and `ALPINE_VERSION` with the
+`alpine:` image in `.circleci/config.yml`) in a reviewed change, then publish.
+
+The master process runs as root and drops workers to `nginx` (`user nginx;`).
+Site configuration and certificates are supplied as runtime mounts.
+
+## Publishing
+
+CircleCI runs checks only. A caller supplies an authenticated `DOCKER_CONFIG`
+and selects the local Docker daemon before invoking `scripts/docker-publish.sh`.
+The script inherits that configuration unchanged; it does not retrieve
+credentials, log in, log out, or remove the caller's Docker configuration.
+The caller is responsible for authentication and its cleanup.
+
+The script publishes `linux/amd64` with SBOM and minimal provenance using
+`<nginx version>-alpine<alpine version>-<UTC YYYYMMDD>` tags. `IMAGE_TAG`
+can override the computed tag. It never pushes `latest` and aborts when its
+preflight check finds an existing tag. That check is not an atomic immutability
+guarantee; registry errors and concurrent publishers require care. Publishing
+does not change running containers.
+
 ## usage:
 
 ### Run using certificates stored in ~/.acme.sh

@@ -1,64 +1,53 @@
 # CircleCI configuration for leverj/nginx-alpine
 #
-# Builds and publishes the image on every push to master AND on a weekly
-# schedule. The scheduled rebuild is the important part: the Dockerfile uses
-# unpinned `apk add`, so a periodic rebuild keeps all OS packages current and
-# prevents the image from accumulating CVEs (which is what tanked the Docker
-# Scout grade to F when the image sat un-rebuilt since 2022).
-#
-# Required project env vars (Project Settings > Environment Variables):
-#   DOCKER_USER  - Docker Hub username
-#   DOCKER_PASS  - Docker Hub access token (use a token, not the account password)
-#
-# Tagging: every build publishes `latest` plus a dated tag (YYYYMMDD) so there
-# is always a fresh, pullable, immutable snapshot.
+# Checks only; publishing is performed separately by an authenticated caller.
 version: 2.1
 
 jobs:
-  build-and-push:
+  checks:
+    # Runs on the Alpine release the Dockerfile pins and installs the pinned
+    # packages straight into this job container. No image is built.
     docker:
-      - image: cimg/base:current
+      - image: alpine:3.24
     steps:
+      - run:
+          name: Install checkout and lint tools
+          command: apk add --no-cache git openssh-client shellcheck
       - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
       - run:
-          name: Compute image tag
-          # Persist the date tag so later steps in this job can reuse it.
-          command: echo "export DATE_TAG=$(date +%Y%m%d)" >> "$BASH_ENV"
-      - run:
-          name: Build & push with SBOM + SLSA provenance attestations
-          # buildx (docker-container driver) attaches build-time SBOM and
-          # provenance attestations to the pushed image — required by Docker
-          # Scout's "supply chain attestations" health-score policy. Attestations
-          # can only be exported on push, so build and push are one step.
+          name: Job runs the Alpine release the Dockerfile pins
           command: |
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker buildx create --use --name attest-builder >/dev/null 2>&1 || docker buildx use attest-builder
-            docker buildx build \
-              --provenance=mode=max \
-              --sbom=true \
-              -t leverj/nginx-alpine:latest \
-              -t "leverj/nginx-alpine:${DATE_TAG}" \
-              --push \
-              .
-            docker logout
+            want="$(sed -n 's/^ARG ALPINE_VERSION=//p' Dockerfile)"
+            have="$(cut -d. -f1,2 /etc/alpine-release)"
+            [ "$want" = "$have" ] || { echo "Dockerfile pins Alpine $want but this job runs $have; bump both together" >&2; exit 1; }
+      - run:
+          name: Pinned nginx packages still resolve
+          # Alpine drops superseded revisions, so this fails once a newer nginx
+          # ships on the branch: bump NGINX_VERSION, then publish.
+          command: |
+            v="$(sed -n 's/^ARG NGINX_VERSION=//p' Dockerfile)"
+            apk add --no-cache "nginx=$v" "nginx-mod-http-headers-more=$v" "nginx-mod-http-image-filter=$v"
+            nginx -V
+      - run:
+          name: nginx -t with this repo's nginx.conf
+          command: |
+            cp nginx.conf /etc/nginx/nginx.conf
+            nginx -t
+      - run:
+          name: shellcheck
+          command: |
+            shellcheck scripts/docker-publish.sh
+            shellcheck --severity=error run.sh
 
 workflows:
-  # Build on every push to master.
-  build-on-commit:
+  checks-on-commit:
     jobs:
-      # DOCKER context provides DOCKER_USER / DOCKER_PASS for the push step.
-      - build-and-push:
-          context: [DOCKER]
-          filters:
-            branches:
-              only:
-                - master
+      - checks
 
-  # Rebuild weekly so OS packages stay patched even with no code changes.
+  # Replaces the old weekly rebuild + push: the pin check above turns a new
+  # Alpine nginx revision into a failed build here instead of a silent image.
   # Mondays at 06:00 UTC.
-  weekly-rebuild:
+  weekly-check:
     triggers:
       - schedule:
           cron: "0 6 * * 1"
@@ -67,5 +56,4 @@ workflows:
               only:
                 - master
     jobs:
-      - build-and-push:
-          context: [DOCKER]
+      - checks
